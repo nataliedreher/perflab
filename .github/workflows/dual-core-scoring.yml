@@ -1,0 +1,13 @@
+name: dual-core-scoring
+on: [push]
+jobs:
+  scoring-run:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v2
+      - run: cat /proc/cpuinfo
+      - run: make filter
+      - run: make test
+      - run: ./Judge
+      - run: ./Judge
+
