@@ -105,129 +105,89 @@ applyFilter(class Filter *filter, cs1300bmp *input, cs1300bmp *output)
   output -> width = input -> width;
   output -> height = input -> height;
 
-  // Declared color0, color1, color2 as shorts
-  short color0, color1, color2;
-  int col, row, i, j, mrow, mcol;
+  // Initialized col, row, i, j, mrow, mcol, color0, color1, color2 before the loop
+  // This will speed things up because the system can use 
+  int col, row, i, j;
+
+  // Initialized height as height = (input -> height) - 1;
+  // This will speed things by allowing to system to access input once an make the
+  // value available to the loops.
   int height = (input -> height) - 1;
+
+  // Initialized height as width = (input -> width) - 1;
+  // Same as with height.
   int width = (input -> width) - 1;
+
+  // Initialized divisor as divisor = filter -> getDivisor();
+  // This will speed things up by calling the getDivisor function only once
+  // and saving the return for use in the loop. This is a big savings as there
+  // will only need to be the one function call instead of a great many.
   char divisor = filter -> getDivisor();
+
+  // Initialized filterSize as filterSize = filter -> getSize();;
+  // This is the same savings method as in divisor.
   int filterSize = filter -> getSize();
   int *data = filter -> data;
   
-  //for(int plane = 0; plane < 3; plane++) {
-  if (divisor == 1) {
+  // #pragma omp parallel for is used with openMP this will optimize the loop
+  // in the compiler.
+  #pragma omp parallel for
+
+  /*
+  Removed the plane loop as it's not needed. It's values are 0, 1, 2 so instead
+  of color[plane] we can do the following:
+  color[0]
+  color[1] 
+  color[2]
   
+  Also made the outer loop row instead of col. This is b/c 3d array for color
+  is color[?][row][col]. This way inner loop of the two is col thus we won't have
+  as many cache misses.
+  */
   for(row = 1; row < height; row++) {
     for(col = 1; col < width; col++) {
 
-      //output -> color[0][row][col] = 0;
-      //output -> color[1][row][col] = 0;
-      //output -> color[2][row][col] = 0;
+      
       // Instead of having output -> color[?][row][col] be set to zero each loop
-      // the code now sets 3 short values to 0.
-      mrow = row - 1;
-      mcol = col - 1;
+      // the code now initializes 3 color variables and sets them to zero.
+      int color0, color1, color2;
       color0 = color1 = color2 = 0;
 
-      
-      for (i = 0; i < 3; i++) {
-        for (j = 0; j < 3; j++) {	
-          color0 += (input -> color[0][mrow + i][mcol + j] 
-            *  data[i * 3 + j] );
-          color1 += (input -> color[1][mrow + i][mcol + j] 
-            *  data[i * 3 + j] );
-          color2 += (input -> color[2][mrow + i][mcol + j] 
-            *  data[i * 3 + j] );
-        }
-      }
-	
-      
-
-      if (color0 < 0) {
-        color0 = 0;
-      }
-
-      if (color1 < 0) {
-        color1 = 0;
-      }
-
-      if (color2 < 0 ) {
-        color2 = 0;
-      }
-
-      if (color0  > 255) { 
-        color0 = 255;
-      }
-      if (color1 > 255) { 
-        color1 = 255;
-      }
-      if (color2 > 255 ) { 
-        color2 = 255;
-      }
-
-      output -> color[0][row][col] = color0;
-      output -> color[1][row][col] = color1;
-      output -> color[2][row][col] = color2;
-    }
-  }
-  }
-  else {
-  
-  for(row = 1; row < height; row++) {
-    for(col = 1; col < width; col++) {
-
-      mrow = row - 1;
-      mcol = col - 1;
-      //output -> color[0][row][col] = 0;
-      //output -> color[1][row][col] = 0;
-      //output -> color[2][row][col] = 0;
-      color0 = color1 = color2 = 0;
-
-      
+      // made the outer loop i instead of j. This is b/c 3d array for color is
+      // color[?][row - 1 + i][col - 1 + j] . This way inner loop of the two is j  
+      // thus we won't have as many cache misses.
       for (i = 0; i < filterSize; i++) {
         for (j = 0; j < filterSize; j++) {	
-          color0 += (input -> color[0][mrow + i][mcol + j] 
-            * data[i * 3 + j] );
-          color1 += (input -> color[1][mrow + i][mcol + j] 
-            * data[i * 3 + j] );
-          color2 += (input -> color[2][mrow + i][mcol + j] 
-            * data[i * 3 + j] );
+
+          // 
+          color0 += (input -> color[0][row - 1 + i][col - 1 + j] 
+            *  data[i * 3 + j] );
+          color1 += (input -> color[1][row - 1 + i][col - 1 + j] 
+            *  data[i * 3 + j] );
+          color2 += (input -> color[2][row - 1 + i][col - 1 + j] 
+            *  data[i * 3 + j] );
         }
       }
 	
-      color0 = color0 / divisor;
-      color1 = color1 / divisor;  
-      color2 = color2 / divisor;
+      color0 /= divisor;
+      color1 /= divisor;  
+      color2 /= divisor;
 
-      if (color0 < 0) {
-        color0 = 0;
-      }
+      color0 = (color0 < 0) ? 0 : color0;
+      color1 = (color1 < 0) ? 0 : color1;
+      color2 = (color2 < 0) ? 0 : color2;
 
-      if (color1 < 0) {
-        color1 = 0;
-      }
-
-      if (color2 < 0 ) {
-        color2 = 0;
-      }
-
-      if (color0  > 255) { 
-        color0 = 255;
-      }
-      if (color1 > 255) { 
-        color1 = 255;
-      }
-      if (color2 > 255 ) { 
-        color2 = 255;
-      }
+      
+      color0 = (color0 > 255) ? 255 : color0;
+      color1 = (color1 > 255) ? 255 : color1;
+      color2 = (color2 > 255) ? 255 : color2;
 
       output -> color[0][row][col] = color0;
       output -> color[1][row][col] = color1;
       output -> color[2][row][col] = color2;
     }
   }
-  }
-  //}
+ 
 
   cycStop = rdtscll();
   double diff = cycStop - cycStart;
