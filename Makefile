@@ -6,6 +6,10 @@ CXX	=g++
 ## Use our standard compiler flags for the course...
 ## You can try changing these flags to improve performance.
 ##
+## Changed -O0 to Ofast. From Intel's reference guide Ofast:
+## Sets certain aggressive options to improve the speed of your application.
+##
+## Added -fopenmp to enable openMP
 CXXFLAGS= -g -Ofast -fno-omit-frame-pointer -Wall -fopenmp
 
 goals: filter judge

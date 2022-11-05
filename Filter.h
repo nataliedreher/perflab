@@ -10,6 +10,7 @@ class Filter {
   
 
 public:
+  // Moved int *data to public so that we can access it without using get.
   int *data;
   Filter(int _dim);
   int get(int r, int c);

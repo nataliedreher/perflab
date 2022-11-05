@@ -124,9 +124,9 @@ applyFilter(class Filter *filter, cs1300bmp *input, cs1300bmp *output)
   // will only need to be the one function call instead of a great many.
   char divisor = filter -> getDivisor();
 
-  // Initialized filterSize as filterSize = filter -> getSize();;
-  // This is the same savings method as in divisor.
-  int filterSize = filter -> getSize();
+  // Initialize *data as filter -> data so that we have easier access to the now
+  // public variable *data. This will be used in the loop so we want quick access.
+  // *data was switched to public so we don't need a function call to access it
   int *data = filter -> data;
   
   // #pragma omp parallel for is used with openMP this will optimize the loop
@@ -155,33 +155,44 @@ applyFilter(class Filter *filter, cs1300bmp *input, cs1300bmp *output)
 
       // made the outer loop i instead of j. This is b/c 3d array for color is
       // color[?][row - 1 + i][col - 1 + j] . This way inner loop of the two is j  
-      // thus we won't have as many cache misses.
-      for (i = 0; i < filterSize; i++) {
-        for (j = 0; j < filterSize; j++) {	
+      // thus we won't have as many cache misses. filter -> getSize() is changed to
+      // 3 as all of the filters are size 3.
+      for (i = 0; i < 3; i++) {
+        for (j = 0; j < 3; j++) {	
 
-          // 
-          color0 += (input -> color[0][row - 1 + i][col - 1 + j] 
-            *  data[i * 3 + j] );
-          color1 += (input -> color[1][row - 1 + i][col - 1 + j] 
-            *  data[i * 3 + j] );
-          color2 += (input -> color[2][row - 1 + i][col - 1 + j] 
-            *  data[i * 3 + j] );
+          // Set each color to itself + (input -> color[?][row - 1 + i][col - 1 + j] 
+          // * data[i * 3 + j]). The [?] comes from fully unrolling the plane loop
+          // and the data[i * 3 + j] is just doing what calling filter -> get(i, j)
+          // does without making a function call. 
+          color0 += (input -> color[0][row - 1 + i][col - 1 + j] * data[i * 3 + j]);
+          color1 += (input -> color[1][row - 1 + i][col - 1 + j] * data[i * 3 + j]);
+          color2 += (input -> color[2][row - 1 + i][col - 1 + j] * data[i * 3 + j]);
         }
       }
 	
+      // Removed the output -> color[plane][row][col] = output -> 
+      // color[plane][row][col] / filter -> getDivisor() for two reasons. First
+      // we are waiting to save to the output at the end, thus the color? variables.
+      // Two earlier outside of the loop we made a variable to get the divisor.
+      // This way we greatly reduce the number of function calls.
       color0 /= divisor;
       color1 /= divisor;  
       color2 /= divisor;
 
+      // Switched all of the if's to ternary operators. When they were if's some
+      // of the fiters still ran incredibly fast when openMP was added but other
+      // filters were greatly slowed down. I suspect the reason for that is the 
+      // ternaries help with branching when openMP is on.
       color0 = (color0 < 0) ? 0 : color0;
       color1 = (color1 < 0) ? 0 : color1;
       color2 = (color2 < 0) ? 0 : color2;
 
-      
       color0 = (color0 > 255) ? 255 : color0;
       color1 = (color1 > 255) ? 255 : color1;
       color2 = (color2 > 255) ? 255 : color2;
 
+      // Since we accumulated all of the changes to the pixel color values in int
+      // variable when now need to set the output values the color variables.
       output -> color[0][row][col] = color0;
       output -> color[1][row][col] = color1;
       output -> color[2][row][col] = color2;
