@@ -10,7 +10,7 @@ CXX	=g++
 ## Sets certain aggressive options to improve the speed of your application.
 ##
 ## Added -fopenmp to enable openMP
-CXXFLAGS= -g -Ofast -fno-omit-frame-pointer -Wall ## -fopenmp
+CXXFLAGS= -g -Ofast -fno-omit-frame-pointer -Wall -fopenmp
 
 goals: filter judge
 	@echo "Done"
